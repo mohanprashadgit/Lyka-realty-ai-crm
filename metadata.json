@@ -1,0 +1,6 @@
+{
+  "name": "Lyka AI - Real Estate Voice Lead Agent",
+  "description": "Real-time AI voice calling agent with Gemini Live native audio for 5-stage real-estate lead qualification.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
