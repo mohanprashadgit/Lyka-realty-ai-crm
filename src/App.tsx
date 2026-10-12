@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LiveAudioPlayer, LiveMicRecorder, arrayBufferToBase64 } from './utils/audio';
+import { CrmApp } from './crm/CrmApp';
 
 // ─── Types ───────────────────────────────────────────────────────────
 type VoiceState = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking' | 'interrupted' | 'reconnecting' | 'disconnected' | 'error';
-type Screen = 'welcome' | 'chat';
+type Screen = 'welcome' | 'chat' | 'crm';
 type Theme = 'light' | 'dark';
 type Language = 'english' | 'tamil';
 type FieldStatus = 'unknown' | 'extracted' | 'confirmed';
@@ -93,13 +94,51 @@ const initialLead = (): LeadInfo => ({
   qualification_status: emptyField(),
 });
 
-const LYKA_LOGO = 'https://lh3.googleusercontent.com/aida/AEtjO1UeuDRD3epOwvTy3fM4e-U7QxYKV2MtUqjGOtvxWy9IEfVuiWNZup1Wr0lBlijxhrFSyo4ZByh73Wt8pGVfXh2V3aoXzpivhnA7cikvYUGyc6csNPIEmaPdiPQkoiPGtcczZ2xOg6CPVFh3grgCc02eOmkPaDGT5BrrQChkvDW9BtgPBS9I7M8ZvSmJ6WVXLVOAz8OWqbyTXILRSkHMSnx7V7224qx1yDiprfDp4tkISwGOXx7yo5R0_w';
+const LYKA_LOGO = '/logo.png';
 
 const DUBAI_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDLChmNfOw4kI8CB-YNCcOGaQbf6str1OZ__wWKIQbg3pTngyVIwoVy-lXIar4xFB1lHMUIs_qzdAa7BcoLx2CBBoHy_BR9c71YeVrO-ZDSxhJQBIVDr4Vc-EO_XSHKGvvNTrB8PivbDl0byOi49V2EJlNbpQwbA2dNxSOImtctvgllJVe4GTLUkpFsTXK38kHJsHak-5Y5q8bxhQnArd0jQOJX0Q5tY2RC3O5syZZz-EUfcaw1LS5e';
 
+function getInitialScreen(): Screen {
+  if (typeof window !== 'undefined') {
+    const hash = window.location.hash.toLowerCase();
+    const path = window.location.pathname.toLowerCase();
+    if (hash.startsWith('#crm') || hash.startsWith('#portal') || path.startsWith('/crm') || path.startsWith('/portal')) {
+      return 'crm';
+    }
+    if (hash === '#chat') {
+      return 'chat';
+    }
+  }
+  return 'welcome';
+}
+
 // ─── App ────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('welcome');
+  const [screen, setScreen] = useState<Screen>(getInitialScreen);
+
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash.startsWith('#crm') || hash.startsWith('#portal')) setScreen('crm');
+      else if (hash === '#chat') setScreen('chat');
+      else if (hash === '#welcome' || hash === '') setScreen('welcome');
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  const changeScreen = (newScreen: Screen) => {
+    setScreen(newScreen);
+    if (newScreen === 'crm') {
+      if (!window.location.hash.toLowerCase().startsWith('#crm')) {
+        window.location.hash = 'crm';
+      }
+    } else if (newScreen === 'chat') {
+      window.location.hash = 'chat';
+    } else {
+      window.location.hash = '';
+    }
+  };
   const [theme, setTheme] = useState<Theme>('dark');
   const [language, setLanguage] = useState<Language>('english');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -449,7 +488,7 @@ export default function App() {
 
   // ─── Start Chat ────────────────────────────────────────────────────
   const startChat = (withVoice: boolean = false) => {
-    setScreen('chat');
+    changeScreen('chat');
     setMessages([{
       id: 'welcome',
       role: 'assistant',
@@ -487,6 +526,11 @@ export default function App() {
   };
 
   const voiceActive = ['connecting', 'listening', 'processing', 'speaking', 'interrupted'].includes(voiceState);
+
+  // ─── Render: CRM ───────────────────────────────────────────────────
+  if (screen === 'crm') {
+    return <CrmApp onOpenChatbot={() => changeScreen('welcome')} initialTheme={theme} />;
+  }
 
   // ─── Render: Welcome ───────────────────────────────────────────────
   if (screen === 'welcome') {
@@ -549,6 +593,14 @@ export default function App() {
                 <span className="btn-icon">💬</span>
                 Continue with Text
               </button>
+              <button
+                className="btn-secondary-glass"
+                onClick={() => changeScreen('crm')}
+                style={{ borderColor: 'rgba(216, 168, 104, 0.4)' }}
+              >
+                <span className="btn-icon">🏛️</span>
+                CRM Portal
+              </button>
               <button className="btn-ghost" onClick={() => setShowSignIn(true)}>
                 Sign In
               </button>
@@ -575,10 +627,13 @@ export default function App() {
             <div className="modal-overlay" onClick={() => setShowSignIn(false)}>
               <div className="signin-modal" onClick={e => e.stopPropagation()}>
                 <h2>Sign In</h2>
-                <p className="signin-note">Authentication will be connected in Phase 2. You can continue as a guest.</p>
-                <input type="email" placeholder="Email address" className="signin-input" disabled />
-                <input type="password" placeholder="Password" className="signin-input" disabled />
-                <button className="btn-primary-gold signin-btn" disabled>Sign In (Coming Soon)</button>
+                <p className="signin-note">Authentication will be connected in Phase 2. You can continue as a guest or explore the CRM.</p>
+                <button
+                  className="btn-primary-gold signin-btn"
+                  onClick={() => { setShowSignIn(false); changeScreen('crm'); }}
+                >
+                  Enter CRM Dashboard
+                </button>
                 <button className="btn-ghost" onClick={() => { setShowSignIn(false); startChat(false); }}>
                   Continue as Guest
                 </button>
@@ -602,7 +657,7 @@ export default function App() {
         {/* Header */}
         <header className="chat-header">
           <div className="header-left">
-            <button className="header-back" onClick={() => { stopVoiceSession(); setScreen('welcome'); }}>
+            <button className="header-back" onClick={() => { stopVoiceSession(); changeScreen('welcome'); }}>
               ←
             </button>
             <img src={LYKA_LOGO} alt="Lyka" className="header-logo" />
@@ -614,6 +669,13 @@ export default function App() {
             </div>
           </div>
           <div className="header-right">
+            <button
+              className="header-btn"
+              onClick={() => { stopVoiceSession(); changeScreen('crm'); }}
+              title="Open CRM Portal"
+            >
+              🏛️
+            </button>
             <button className="header-btn" onClick={() => setLanguage(l => l === 'english' ? 'tamil' : 'english')}>
               {language === 'english' ? 'EN' : 'த'}
             </button>

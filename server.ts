@@ -11,6 +11,7 @@ import twilio from 'twilio';
 import fs from 'fs';
 import { testConnection, initSchema } from './db.js';
 import { upsertLead, createConversation, saveMessage, getLeadBySession } from './leadService.js';
+import { crmRouter } from './crmRoutes.js';
 import os from 'os';
 
 const execPromise = util.promisify(exec);
@@ -27,6 +28,9 @@ const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Mount CRM API Router separately without touching chatbot routes
+app.use('/api/crm', crmRouter);
 
 // Create shared HTTP server
 const server = http.createServer(app);
